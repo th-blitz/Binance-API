@@ -10,8 +10,8 @@ import dateparser
 import pytz
 
 keys={
-    'apikey':'Ov83xBFDrXOq2AXw1RoTOm0kyqdJg1inU73vaYLyDD6F9IeioJGzyUuWxMjBHshj',
-    'secretkey':'whX21dwM5JwsohZzbImlVEOpVaYkzQmkSoDHU2J330eoKTx6R7ivuhjPpEE9Tp1v'
+    'apikey':'Ov83************************************************************j',
+    'secretkey':'w************************************************************v'
 }
 
 
