@@ -1,5 +1,4 @@
 import json
-import pandas as pd
 import urllib
 import time
 import requests
@@ -8,19 +7,39 @@ import hmac
 import hashlib
 import dateparser
 import pytz
+import pandas as pd
 
-keys={
-    'apikey':'Ov83************************************************************j',
-    'secretkey':'w************************************************************v'
+
+exchangeendpoint='https://api.binance.com'
+querystring={
+    'GetServerStatus':'/wapi/v3/systemStatus.html',
+    'GetPriceTicker':'/api/v3/ticker/price',
+    'GetCandleStickData':'/api/v3/klines',
+    'GetAccountSnapshot':'/sapi/v1/accountSnapshot',
+    'PlaceNewMarketOrder':'/api/v3/order',
+    'PlaceNewLimitOrder':'/api/v3/order',
+    'CancelaOrder':'/api/v3/order',
+    'CancelAllOrders':'api/v3/openOrders',
+    'CheckOrderStatus':'/api/v3/order',
+    'CheckForCurrentOpenOrders':'/api/v3/openOrders',
+    'GetAccountInfo':'/api/v3/account'
 }
 
+def delete(exchangeendpoint, querystring, parameter,header):
+    info = requests.delete(f'{exchangeendpoint}{querystring}', params=parameter, headers=header)
+    info = json.loads(info.text)
+    return info
 
-def sign(message,encryptionstandard):
-    if encryptionstandard=='SHA256':
-        message=urllib.parse.urlencode(message)
-        hashed = hmac.new(keys['secretkey'].encode(), message.encode(), digestmod=hashlib.sha256)
-        signedmessage = hashed.hexdigest()
-        return signedmessage
+def post(exchangeendpoint,querystring,parameter,header):
+    info=requests.post(f'{exchangeendpoint}{querystring}',params=parameter,headers=header)
+    info=json.loads(info.text)
+    return info
+
+def sign(message,keys):
+    message=urllib.parse.urlencode(message)
+    hashed = hmac.new(keys['secretkey'].encode(), message.encode(), digestmod=hashlib.sha256)
+    signedmessage = hashed.hexdigest()
+    return signedmessage
 
 def date_to_milliseconds(date_str):
     """Convert UTC date to milliseconds
@@ -43,135 +62,240 @@ def date_to_milliseconds(date_str):
     # return the difference in time
     return int((d - epoch).total_seconds() * 1000.0)
 
-def exchangeendpoints(exchange):
-    if exchange is 'binance':
-        return('https://api.binance.com')
-    else:
-        print('Update this exchange in exchangeendpoints function')
-        return('NULL')
+def get(exchangeendpoint,querystring,parameter,header):
+    info = requests.get(f'{exchangeendpoint}{querystring}', params=parameter, headers=header)
+    info = json.loads(info.text)
+    return info
 
-def querystringsforinfo(exchange,userinput,label):
-    if exchange is 'binance':
-        headers = {"X-MBX-APIKEY": keys['apikey']}
-        if userinput=='get data':
-            querystring='/api/v3/klines'
-            parameter=parametergenerator(userinput,label)
-            endpointtype='get'
-            headers='noheader'
-            return(querystring,parameter,headers,endpointtype,userinput)
-        elif userinput=='snap':
-            querystring='/sapi/v1/accountSnapshot'
-            parameter=parametergenerator(userinput,label)
-            endpointtype='get'
-            return(querystring,parameter,headers,endpointtype,userinput)
-        elif userinput=='tick':
-            querystring='/api/v3/ticker/price'
-            parameter=parametergenerator(userinput,label)
-            endpointtype='get'
-            return(querystring,parameter,headers,endpointtype,userinput)
+def GetServerStatus():
+    status = get(exchangeendpoint,querystring['GetServerStatus'],parameter=None,header=None)
+    return status
 
-def parametergenerator(userinput,label):
-    if userinput=='get data':
-        print('enter the parameters')
-        print('----NOTE ALL PARAMETERS ARE MANDATORY DUE TO CODING DIFFICULTY----')
-        symbol = input('enter the symbol (mandatory) (ex:BTCUSDT):')
-        interval = input('enter the interval (mandatory) (ex:1m,1h,1d,1w):')
-        date_str=input('enter the start time in format (16 June, 2020 / 10 hours ago UTC / now UTC : ')
-        starttime=date_to_milliseconds(date_str)
-        date_str =input('endtime in the same format : ')
-        endtime=date_to_milliseconds(date_str)
-        limit = 1000
-        plainparameter = {
-            'symbol': symbol,
-            'interval': interval,
-            'startTime': starttime,
-            'endTime': endtime,
-            'limit': limit
+def GetPriceTicker(ListOfCoins):
+    info=[]
+    for everycoin in ListOfCoins:
+        parameter={
+            'symbol':everycoin
         }
-        return plainparameter
-    elif userinput=='snap':
-        print('enter the parameters')
-        acctype=input('enter the account type in format "SPOT", "MARGIN", "FUTURES" : ')
-        timestamp=date_to_milliseconds('now utc')
-        plainparameter = {
-            'type':acctype,
+        info.append(get(exchangeendpoint,querystring['GetPriceTicker'],parameter,header=None))
+        time.sleep(0.08)
+    return info
+
+def GetCandleStickData(ListOfCoins,ListOfIntervals,fromwhen,tillwhen):
+    fromwhen=date_to_milliseconds(fromwhen)
+    tillwhen=date_to_milliseconds(tillwhen)
+    intervalsinmilli = {'1m': 1 * 60 * 1000, '3m': 3 * 60 * 1000, '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000,
+                        '30m': 30 * 60 * 1000, '1h': 1 * 60 * 60 * 1000, '2h': 2 * 60 * 60 * 1000,
+                        '4h': 4 * 60 * 60 * 1000,
+                        '6h': 6 * 60 * 60 * 1000, '8h': 8 * 60 * 60 * 1000, '12h': 12 * 60 * 60 * 1000,
+                        '1d': 1 * 24 * 60 * 60 * 1000,
+                        '3d': 3 * 24 * 60 * 60 * 1000, '1w': 1 * 7 * 24 * 60 * 60 * 1000
+                        }
+    info={}
+    for everycoin in ListOfCoins:
+        for everyintervals in ListOfIntervals:
+            data=[]
+            parameter={
+                'symbol':everycoin,
+                'interval':everyintervals,
+                'startTime':fromwhen,
+                'endTime':tillwhen,
+                'limit':1000
+            }
+            inter = parameter['interval']
+            intervals = (parameter['endTime'] - parameter['startTime']) / intervalsinmilli[f'{inter}']
+            print(intervals)
+            if intervals >= 1000:
+                if (intervals / 1000) < (intervals % 1000):
+                    order = (int(intervals / 1000)) + 1
+                else:
+                    order = int(intervals / 1000)
+                diff = parameter['endTime'] - parameter['startTime']
+                addition = int(diff / order)
+                end = parameter['endTime']
+                parameter['endTime'] = parameter['startTime']
+                print(f'------>>> fetching about {int(intervals)} candelsticks data from binance ... ')
+                for i in range(order):
+                    parameter['endTime'] = parameter['endTime'] + addition
+                    if (parameter['endTime'] > end):
+                        parameter['endTime'] = end
+                    connect=get(exchangeendpoint,querystring['GetCandleStickData'],parameter,header=None)
+                    for j in connect:
+                        data.append(j)
+                    parameter['startTime'] = parameter['endTime']
+                    time.sleep(0.08)
+            else:
+                data = get(exchangeendpoint,querystring['GetCandleStickData'],parameter,header=None)
+                time.sleep(0.08)
+            print(f'{everycoin}_{everyintervals}')
+            info.update({f'{everycoin}_{everyintervals}':data})
+
+    return info
+
+def GetAccountSnapshot(AccountType,ApiKey,SecretKey):
+    timestamp=date_to_milliseconds('now UTC')
+    parameter={
+        'type':AccountType,
+        'timestamp':timestamp
+    }
+    keys={
+        'apikey':ApiKey,
+        'secretkey':SecretKey
+    }
+    signature=sign(parameter,keys)
+    parameter.update({'signature':signature})
+    info=get(exchangeendpoint,querystring['GetAccountSnapshot'],parameter,header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def PlaceNewMarketOrder(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,BUY_or_SELL,quantity_Of_BTC_or_BNB_or_ETH_etc,
+                        Set_Any_Unique_Order_ID_in_string_format,ApiKey,SecretKey):
+    timestamp=date_to_milliseconds('now UTC')
+    parameter={
+        'symbol':BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
+        'side':BUY_or_SELL,
+        'type':'MARKET',
+        'quantity':quantity_Of_BTC_or_BNB_or_ETH_etc,
+        'newClientOrderId':Set_Any_Unique_Order_ID_in_string_format,
+        'timestamp':timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature=sign(parameter,keys)
+    parameter.update({'signature':signature})
+    info=post(exchangeendpoint,querystring['PlaceNewMarketOrder'],parameter,header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def PlaceNewLimitOrder(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,BUY_or_SELL,quantity_Of_BTC_or_BNB_or_ETH_etc,Price,
+                       timeinforce_GTC_or_IOK_or_FOK,Set_Any_Unique_Order_ID_in_string_format,ApiKey,SecretKey):
+    timestamp = date_to_milliseconds('now UTC')
+    parameter = {
+        'symbol': BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
+        'side': BUY_or_SELL,
+        'type': 'LIMIT',
+        'timeInForce':timeinforce_GTC_or_IOK_or_FOK,
+        'price':Price,
+        'quantity': quantity_Of_BTC_or_BNB_or_ETH_etc,
+        'newClientOrderId': Set_Any_Unique_Order_ID_in_string_format,
+        'timestamp': timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = post(exchangeendpoint, querystring['PlaceNewLimitOrder'], parameter,
+                header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def CancelaOrder(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,Your_Unique_Order_ID,ApiKey,SecretKey):
+    timestamp=date_to_milliseconds('now utc')
+    parameter={
+        'symbol':BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
+        'origClientOrderId':Your_Unique_Order_ID,
+        'timestamp':timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = delete(exchangeendpoint, querystring['CancelaOrder'], parameter,
+                header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def CancelAllOrders(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,ApiKey,SecretKey):
+    timestamp = date_to_milliseconds('now utc')
+    parameter = {
+        'symbol': BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
+        'timestamp': timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = delete(exchangeendpoint, querystring['CancelAllOrders'], parameter,
+                  header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def CheckOrderStatus(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,Your_Unique_Order_ID,ApiKey,SecretKey):
+    timestamp = date_to_milliseconds('now utc')
+    parameter = {
+        'symbol': BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
+        'origClientOrderId': Your_Unique_Order_ID,
+        'timestamp': timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = get(exchangeendpoint, querystring['CheckOrderStatus'], parameter,
+                  header={"X-MBX-APIKEY": keys['apikey']})
+    return info
+
+def CheckForCurrentOpenOrders(ALL_BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,ApiKey,SecretKey):
+    timestamp = date_to_milliseconds('now utc')
+    if ALL_BTCUSDT_or_BNBUSDT_or_BTCBNB_etc == 'ALL':
+        parameter={
+            'timestamp': timestamp
+        }
+    else:
+        parameter={
+            'symbol':ALL_BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,
             'timestamp':timestamp
         }
-        signature=sign(plainparameter,'SHA256')
-        plainparameter.update({'signature':signature})
-        return plainparameter
-    elif userinput=='tick':
-        plainparameter={
-            'symbol':label
-        }
-        return plainparameter
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = get(exchangeendpoint, querystring['CheckForCurrentOpenOrders'], parameter,
+               header={"X-MBX-APIKEY": keys['apikey']})
+    return info
 
-def APIconnenction(exchangeendpoint,querystring,parameter,header,endpointtype,userinput):
-    if userinput=='get data':
-        intervalsinmilli = {'1m': 1 * 60 * 1000, '3m': 3 * 60 * 1000, '5m': 5 * 60 * 1000, '15m': 15 * 60 * 1000,
-                            '30m': 30 * 60 * 1000, '1h': 1 * 60 * 60 * 1000, '2h': 2 * 60 * 60 * 1000,
-                            '4h': 4 * 60 * 60 * 1000,
-                            '6h': 6 * 60 * 60 * 1000, '8h': 8 * 60 * 60 * 1000, '12h': 12 * 60 * 60 * 1000,
-                            '1d': 1 * 24 * 60 * 60 * 1000,
-                            '3d': 3 * 24 * 60 * 60 * 1000, '1w': 1 * 7 * 24 * 60 * 60 * 1000
-                            }
-        inter=parameter['interval']
-        intervals=(parameter['endTime'] - parameter['startTime']) / intervalsinmilli[f'{inter}']
-        if intervals >=1000:
-            if (intervals/1000) < (intervals%1000):
-                order=(int(intervals/1000))+1
-            else:
-                order=int(intervals/1000)
-            diff=parameter['endTime'] - parameter['startTime']
-            addition=int(diff/order)
-            data=[]
-            end=parameter['endTime']
-            parameter['endTime']=parameter['startTime']
-            print(f'------>>> fetching about {int(intervals)} candelsticks data from binance ... ')
-            for i in range(order):
-                parameter['endTime']=parameter['endTime']+addition
-                if(parameter['endTime']>end):
-                    parameter['endTime']=end
-                connect = requests.get(f'{exchangeendpoint}{querystring}', params=parameter)
-                connect=json.loads(connect.text)
-                for j in connect:
-                    data.append(j)
-                parameter['startTime']=parameter['endTime']
-                time.sleep(0.06)
-            return data
-        else:
-            connect = requests.get(f'{exchangeendpoint}{querystring}', params=parameter)
-            return connect
+def GetAccountInfo(ApiKey,SecretKey):
+    timestamp = date_to_milliseconds('now utc')
+    parameter={
+        'timestamp':timestamp
+    }
+    keys = {
+        'apikey': ApiKey,
+        'secretkey': SecretKey
+    }
+    signature = sign(parameter, keys)
+    parameter.update({'signature': signature})
+    info = get(exchangeendpoint, querystring['GetAccountInfo'], parameter,
+               header={"X-MBX-APIKEY": keys['apikey']})
+    return info
 
-    elif endpointtype is 'get':
-        if header=='noheader':
-            connect = requests.get(f'{exchangeendpoint}{querystring}', params=parameter)
-            connect = json.loads(connect.text)
-            return connect
-        else:
-            connect = requests.get(f'{exchangeendpoint}{querystring}', params=parameter,headers=header)
-            connect = json.loads(connect.text)
-            return connect
-
-def datatopanda(rawdata,userinput,exchange):
-    if exchange is 'binance':
-        if userinput=='get data':
+def GetCandleStickDataOHLCV(ListOfCoins,ListOfIntervals,fromwhen,tillwhen):
+    rawdata=GetCandleStickData(ListOfCoins,ListOfIntervals,fromwhen,tillwhen)
+    info={}
+    for eachcoin in ListOfCoins:
+        for eachinterval in ListOfIntervals:
             open = []
             high = []
             low = []
             close = []
             volume = []
             datetimes = []
-
-            for every in rawdata:
-                datetimes.append(datetime.datetime.fromtimestamp(every[0]/1000.0))
-                open.append(every[1])
-                high.append(every[2])
-                low.append(every[3])
-                close.append(every[4])
-                volume.append(every[5])
-
-            df=pd.DataFrame(list(zip(datetimes,open,high,low,close,volume)), columns =['time','open', 'high','low','close','volume'])
+            for eachdata in rawdata.get(f'{eachcoin}_{eachinterval}'):
+                datetimes.append(datetime.datetime.fromtimestamp(eachdata[0] / 1000.0))
+                open.append(eachdata[1])
+                high.append(eachdata[2])
+                low.append(eachdata[3])
+                close.append(eachdata[4])
+                volume.append(eachdata[5])
+            df = pd.DataFrame(list(zip(datetimes, open, high, low, close, volume)),
+                                  columns=['time', 'open', 'high', 'low', 'close', 'volume'])
             open.clear()
             close.clear()
             high.clear()
@@ -179,37 +303,8 @@ def datatopanda(rawdata,userinput,exchange):
             high.clear()
             datetimes.clear()
             volume.clear()
-            rawdata.clear()
-            print(df.head())
-            print(df.tail())
-            df.to_csv(r'E:\\Tradedata\\BTCUSDT\\4hHrCandleSticks.csv')
-            return(df)
-        elif userinput=='snap':
-            balances=rawdata['snapshotVos'][0]['data']['balances']
-            assets=[]
-            free=[]
-            locked=[]
-            for i in balances:
-                assets.append(i['asset'])
-                free.append(i['free'])
-                locked.append(i['locked'])
-            df = pd.DataFrame(list(zip(assets,free,locked)),columns=['Coins', 'Available', 'Locked'])
-            print(rawdata['snapshotVos'][0]['data']['totalAssetOfBtc'])
-            print(df)
-            return df
+            info.update({f'{eachcoin}_{eachinterval}':df})
+    return info
 
-exchange='binance'
-print('for account snapshot enter *snap*')
-print('for account deposit history enter *deposit history*')
-print('for account withdrawl history enter *withdraw history*')
-print('for account trade info *acc info*')
-# print('for price ticker *tick*')
-print('for candlestick data *get data*')
-userinput=input('enter the command my lord :')
-label=None
 
-exchangeendpoint=exchangeendpoints(exchange)
-querystring,parameter,header,endpointtype,userinput=querystringsforinfo(exchange,userinput,label)
-rawdata=APIconnenction(exchangeendpoint,querystring,parameter,header,endpointtype,userinput)
-finaldata=datatopanda(rawdata,userinput,exchange)
 
