@@ -114,7 +114,6 @@ def GetCandleStickData(ListOfCoins,ListOfIntervals,fromwhen,tillwhen):
                 addition = int(diff / order)
                 end = parameter['endTime']
                 parameter['endTime'] = parameter['startTime']
-                print(f'------>>> fetching about {int(intervals)} candelsticks data from binance ... ')
                 for i in range(order):
                     parameter['endTime'] = parameter['endTime'] + addition
                     if (parameter['endTime'] > end):
