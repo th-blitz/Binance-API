@@ -1,4 +1,4 @@
-Binance API 
+# Binance API 
 
 Main file -> HeyBinance.py
 
@@ -15,9 +15,9 @@ How to use HeyBinance.py?
     
 -> HeyBinance.GetAccountSnapshot(AccountType,ApiKey,SecretKey) 
     accounttype='SPOT' OR 'MARGIN' etc
-    apikey='0xhfkasl***************************lakfsajh'
+****    apikey='0xhfkasl***************************lakfsajh'
     
-    secretkey='kslhafkja*************************jhalsghas'
+****    secretkey='kslhafkja*************************jhalsghas'
     
 -> HeyBinance.PlaceNewMarketOrder(BTCUSDT_or_BNBUSDT_or_BTCBNB_etc,BUY_or_SELL,quantity_Of_BTC_or_BNB_or_ETH_etc,Set_Any_Unique_Order_ID_in_string_format,ApiKey,SecretKey)
     eg: (LTCBNB , BUY, 32.456 ,'34th_order',apikey,sceretkey)
